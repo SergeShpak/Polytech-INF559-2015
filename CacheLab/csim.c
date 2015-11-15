@@ -607,7 +607,7 @@ long get_line_address(FILE *fp) {
     given on a file string
 */
     char next_char;
-    char address_str[8] = {'\0'};
+    char address_str[9] = {'\0'};
     int i;
     unsigned long result = 0; 
     next_char = fgetc(fp);
