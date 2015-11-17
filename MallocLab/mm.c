@@ -51,8 +51,8 @@ team_t team = {
 /* we extend heap by this amount of bytes */
 #define CHUNKSIZE       4096
 
-/* Implicit free list macros */
 
+/* Implicit free list macros */
 
 /* Get the word stored at the address pointed by p */
 #define GET(p)          (*(unsigned int *)(p))
@@ -77,10 +77,18 @@ team_t team = {
 #define HDRP(bp)        ((char *)(bp) - WSIZE)
 
 /* Compute address of the block pointer (bp) footer */
-#define FTRP(bp)        ((char *))
+#define FTRP(bp)        ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
+/* Compute address of the next block after the one
+    that bp points at */
+#define NEXT_BLKP(bp)   ((char *)(bp) + GET_SIZE((char *)(bp)- WSIZE))
+
+/* Compute address of the previous block before the one
+    that bp points at */
+#define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
 
 /* End of implicit free list macros */
+
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
@@ -193,8 +201,14 @@ void *extend_heap(size_t words) {
     if (-1 == (long)(bp = mem_sbrk(size))) {
         return NULL;
     }
-
     
+    /* Add header, footer to the allocated block
+        and add a new epilogue to the heap */
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(FTRP(bp), PACK(size, 0));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));  // new epilogue block
+
+    return bp;
 }
 
 
