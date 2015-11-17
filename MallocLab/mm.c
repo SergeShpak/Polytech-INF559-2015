@@ -208,10 +208,58 @@ void *extend_heap(size_t words) {
     PUT(FTRP(bp), PACK(size, 0));
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));  // new epilogue block
 
-    return bp;
+    return coalesce(bp);
 }
 
+void *coalesce(void *bp) {
+    size_t combined_blocks_size = 0;
+    /* Get the allocation byte of the previous block */
+    size_t prev_alloc = GET_ALLOC(HDRP(PREV_BLKP(bp)));
+    /* Get the allocation byte of the next block */
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    /* Get size of the block that we coalesce */
+    size_t current_block_size = GET_SIZE(HDRP(bp));
 
+    /* Previous and next block are allocated */
+    if (0 != prev_alloc && 0 != next_alloc) {
+        return bp;
+    }
+
+    /* Previous block is free, next block is allocated */
+    if (0 == prev_alloc && 0 != next_alloc) {
+        combined_block_size = current_block_size + 
+            GET_SIZE(HDRP(PREV_BLKP(bp)));  // previous block size
+        PUT(HDRP(PREV_BLKP(bp)), PACK(combined_block_size, 0));
+        PUT(FTRP(bp), PACK(combined_block_size, 0));
+        bp = PREV_BLKP(bp);
+        return bp;
+    }
+
+    /* Previous block is allocated, next block is free */
+    if (0 != prev_alloc && 0 == next_alloc) {
+        combined_block_size = GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        /* After the following operation macros process bp 
+            as a block of size combined_block_size */
+        PUT(HDRP(bp), PACK(combined_block_size, 0));
+        /* We don't use PUT(NEXT_BLKP(bp)) here as after changing
+            bp header macros treat the footer of the next block as
+            bp's footer */
+        PUT(FTRP(bp), PACK(combined_block_size, 0));
+        return bp;    
+    }
+    
+    /* Previous block is free, next block is free */
+    if (0 == prev_alloc && 0 == next_alloc) {
+        combined_block_size = GET_SIZE(HDRP(NEXT_BLKP(bp))) + 
+                                GET_SIZE(HDRP(PREV_BLKP(bp)));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(combined_block_size, 0));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(combined_block_size, 0));
+        bp = PREV_BLKP(bp);
+        return bp;
+    }
+
+    return NULL;  // "default" return
+}
 
 
 
